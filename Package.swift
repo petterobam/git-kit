@@ -7,7 +7,7 @@ let package = Package(
         .library(name: "GitKit", targets: ["GitKit"]),
     ],
     dependencies: [
-        .package(url: "https://github.com/binarybirds/shell-kit", from: "1.0.0"),
+        .package(path: "../shell-kit"),
     ],
     targets: [
         .target(name: "GitKit", dependencies: [

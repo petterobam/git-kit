@@ -16,10 +16,16 @@ public final class Git: Shell {
         case cmd(Command, String? = nil)
         case addAll
         case status(short: Bool = false)
-        case commit(message: String, Bool = false)
-        case config(name: String, value: String)
-        case clone(url: String)
-        case checkout(branch: String, create: Bool = false)
+        case clone(url: String , dirName: String? = nil)
+        case commit(message: String, allowEmpty: Bool = false, gpgSigned: Bool = false)
+        case writeConfig(name: String, value: String)
+        case readConfig(name: String)
+
+        /// - parameter branch the name of the branch to checkout
+        /// - parameter create whether to create a new branch or checkout an existing one
+        /// - parameter tracking when creating a new branch, the name of the remote branch it should track
+        case checkout(branch: String, create: Bool = false, tracking: String? = nil)
+
         case log(numberOfCommits: Int? = nil, options: [String]? = nil, revisions: String? = nil)
         case push(remote: String? = nil, branch: String? = nil)
         case pull(remote: String? = nil, branch: String? = nil, rebase: Bool = false)
@@ -32,8 +38,12 @@ public final class Git: Shell {
         case submoduleForeach(recursive: Bool = false, command: String)
         case renameRemote(oldName: String, newName: String)
         case addRemote(name: String, url: String)
-        case revParse(abbrevRef: String)
-        case revList(branch: String, count: Bool = false, revisions: String? = nil)
+
+        /// - parameter abbrevRef whether or not the result should be the abbreviated reference name or the full commit SHA hash
+        /// - parameter revision the name of the revision to parse. can be symbolic (`@`), human-readable (`origin/HEAD`) or a commit SHA hash
+        case revParse(abbrevRef: Bool, revision: String)
+
+        case revList(count: Bool = false, revisions: String? = nil)
         case raw(String)
         case lsRemote(url: String, limitToHeads: Bool = false)
 
@@ -52,19 +62,31 @@ public final class Git: Shell {
                 if short {
                     params.append("--short")
                 }
-            case .commit(let message, let allowEmpty):
+            case .commit(let message, let allowEmpty, let gpgSigned):
                 params = [Command.commit.rawValue, "-m", "\"\(message)\""]
                 if allowEmpty {
                     params.append("--allow-empty")
                 }
-            case .clone(let url):
+                if gpgSigned {
+                    params.append("--gpg-sign")
+                }
+                else {
+                    params.append("--no-gpg-sign")
+                }
+            case .clone(let url, let dirname):
                 params = [Command.clone.rawValue, url]
-            case .checkout(let branch, let create):
+                if let dirName = dirname {
+                    params.append(dirName)
+                }
+            case .checkout(let branch, let create, let tracking):
                 params = [Command.checkout.rawValue]
                 if create {
                     params.append("-b")
                 }
                 params.append(branch)
+                if let tracking {
+                    params.append(tracking)
+                }
             case .log(let numberOfCommits, let options, let revisions):
                 params = [Command.log.rawValue]
                 if let numberOfCommits = numberOfCommits {
@@ -73,7 +95,6 @@ public final class Git: Shell {
                 if let options = options {
                     params.append(contentsOf: options)
                 }
-                params.append("--")
                 if let revisions = revisions {
                     params.append(revisions)
                 }
@@ -135,11 +156,11 @@ public final class Git: Shell {
                 params = [Command.remote.rawValue, "add", name, url]
             case .raw(let command):
                 params.append(command)
-            case .config(name: let name, value: let value):
+            case .writeConfig(let name, let value):
                 params = [Command.config.rawValue, "--add", name, value]
-            case .revParse(abbrevRef: let abbrevRef):
-                params = [Command.revParse.rawValue, "--abbrev-ref", abbrevRef]
-            case .revList(let branch, let count, let revisions):
+            case .readConfig(let name):
+                params = [Command.config.rawValue, "--get", name]
+            case .revList(let count, let revisions):
                 params = [Command.revList.rawValue]
                 if count {
                     params.append("--count")
@@ -147,6 +168,12 @@ public final class Git: Shell {
                 if let revisions = revisions {
                     params.append(revisions)
                 }
+            case .revParse(let abbrevRef, let revision):
+                params = [Command.revParse.rawValue]
+                if abbrevRef {
+                    params.append("--abbrev-ref")
+                }
+                params.append(revision)
             case .lsRemote(url: let url, limitToHeads: let limitToHeads):
                 params = [Command.lsRemote.rawValue]
                 if limitToHeads {
